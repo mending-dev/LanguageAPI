@@ -1,0 +1,16 @@
+# LanguageAPI language file: en_us (fallback language)
+# Use any key as %language_<key>%. Texts support MiniMessage.
+# Nested sections are flattened with dots: %language_welcome.title%
+# Always put texts in quotes so that "#" and ":" are not parsed by YAML.
+# Reserved keys (do not use): player, active, fallback
+
+npc_rewards: "<#ffffff>Rewards"
+
+welcome:
+  title: "<gradient:#efbf04:#ffffff>Welcome!</gradient>"
+  subtitle: "<gray>Hello <white>%player_name%</white>, have fun!"
+
+# Lists are joined with line breaks
+help_lines:
+  - "<gray>Line one"
+  - "<gray>Line two"

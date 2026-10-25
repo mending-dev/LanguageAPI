@@ -1,20 +1,36 @@
 plugins {
-    id("java")
+    java
 }
 
 group = "dev.mending"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.helpch.at/releases/")
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:6.0.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // Use the same paper-api version string as in your other plugin projects
+    compileOnly("io.papermc.paper:paper-api:26.1.+")
+    compileOnly("me.clip:placeholderapi:2.11.6")
 }
 
-tasks.test {
-    useJUnitPlatform()
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks {
+    compileJava {
+        options.encoding = "UTF-8"
+        options.release = 25
+    }
+    processResources {
+        filesMatching("paper-plugin.yml") {
+            expand("version" to project.version)
+        }
+    }
 }

@@ -1,0 +1,19 @@
+# Fallback language. Must match a file name in the lang/ folder (without .yml).
+# It is used when the client's language has no file or a key is missing in that file.
+fallback-language: en_us
+
+# If a client uses e.g. "de_at" and there is no de_at.yml, use another file of the
+# same language (e.g. de_de.yml) before falling back to the fallback language.
+language-prefix-matching: true
+
+# Format of the text returned by the placeholders:
+#   minimessage - raw MiniMessage text (use this if the consuming plugin parses MiniMessage)
+#   legacy      - converted to legacy section-sign colors incl. hex (for plugins without MiniMessage)
+#   plain       - all formatting removed
+output-format: minimessage
+
+# Resolve other placeholders (e.g. %player_name%) inside language texts.
+parse-nested-placeholders: true
+
+# Returned when a key exists in no language file. {key} is replaced by the requested key.
+missing-key-format: "[{key}]"
