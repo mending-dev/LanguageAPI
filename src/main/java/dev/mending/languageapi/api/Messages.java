@@ -1,8 +1,11 @@
 package dev.mending.languageapi.api;
 
 import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.title.Title;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -17,7 +20,9 @@ import java.util.List;
  * placeholders (e.g. {@code %player_name%}) in the texts are resolved automatically before the text is parsed.
  * <p>
  * The language of an {@link Audience} is its client language. Everything that is not a player
- * (console, ...) uses the fallback language. All methods are thread-safe.
+ * (console, ...) uses the fallback language. Objects that are shown to several players at once
+ * (boss bars, scoreboards, holograms) show everyone the same text, so create one object per player
+ * or per language. All methods are thread-safe.
  */
 public interface Messages {
 
@@ -31,6 +36,40 @@ public interface Messages {
      * Sends a message as action bar. Empty texts are not sent.
      */
     void sendActionBar(Audience audience, String key, TagResolver... resolvers);
+
+    /**
+     * Sends a title with the default display times. Nothing is sent if title and subtitle are both empty.
+     *
+     * @param titleKey    the key of the title
+     * @param subtitleKey the key of the subtitle, or null for no subtitle
+     */
+    default void sendTitle(Audience audience, String titleKey, @Nullable String subtitleKey,
+                           TagResolver... resolvers) {
+        sendTitle(audience, titleKey, subtitleKey, Title.DEFAULT_TIMES, resolvers);
+    }
+
+    /**
+     * Sends a title with custom display times. Nothing is sent if title and subtitle are both empty.
+     *
+     * @param titleKey    the key of the title
+     * @param subtitleKey the key of the subtitle, or null for no subtitle
+     * @param times       fade in, stay and fade out times
+     */
+    void sendTitle(Audience audience, String titleKey, @Nullable String subtitleKey,
+                   Title.Times times, TagResolver... resolvers);
+
+    /**
+     * Creates a boss bar with the translated name, shows it to the audience and returns it.
+     * Every call creates a new bar for this audience only. Keep the returned bar to update it
+     * ({@code bar.name(messages.get(...))}, {@code bar.progress(...)}) or to hide it again.
+     * <p>
+     * Unlike {@link #send}, an empty text does not disable the bar: it is shown without a name.
+     *
+     * @param key      the key of the bar's name
+     * @param progress the progress between 0.0 and 1.0
+     */
+    BossBar showBossBar(Audience audience, String key, float progress,
+                        BossBar.Color color, BossBar.Overlay overlay, TagResolver... resolvers);
 
     /**
      * Sends a message to all online players (each in their own language) and to the console.

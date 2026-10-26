@@ -2,9 +2,11 @@ package dev.mending.languageapi.core;
 
 import dev.mending.languageapi.api.Messages;
 import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -447,6 +449,30 @@ public final class LanguageBundle implements Messages {
     }
 
     @Override
+    public void sendTitle(Audience audience, String titleKey, @Nullable String subtitleKey,
+                          Title.Times times, TagResolver... resolvers) {
+        Component title = componentOrEmpty(audience, titleKey, resolvers);
+        Component subtitle = subtitleKey == null
+                ? Component.empty()
+                : componentOrEmpty(audience, subtitleKey, resolvers);
+
+        // Disabled by the server owner (both texts are empty)
+        if (Component.empty().equals(title) && Component.empty().equals(subtitle)) {
+            return;
+        }
+        audience.showTitle(Title.title(title, subtitle, times));
+    }
+
+    @Override
+    public BossBar showBossBar(Audience audience, String key, float progress,
+                               BossBar.Color color, BossBar.Overlay overlay, TagResolver... resolvers) {
+        // A new bar per call: the name is translated for this audience only
+        BossBar bar = BossBar.bossBar(componentOrEmpty(audience, key, resolvers), progress, color, overlay);
+        audience.showBossBar(bar);
+        return bar;
+    }
+
+    @Override
     public void broadcast(String key, TagResolver... resolvers) {
         for (Player player : Bukkit.getOnlinePlayers()) {
             send(player, key, resolvers);
@@ -501,6 +527,21 @@ public final class LanguageBundle implements Messages {
     @Override
     public boolean isPlaceholderApiEnabled() {
         return options.placeholderApi() && service.hasPlaceholderApi();
+    }
+
+    /**
+     * Returns the component for a key, the missing-key text for unknown keys,
+     * or an empty component if the text is empty.
+     */
+    private Component componentOrEmpty(Audience audience, String key, TagResolver... resolvers) {
+        String raw = find(audience, key);
+        if (raw == null) {
+            return missingComponent(key);
+        }
+        if (raw.isEmpty()) {
+            return Component.empty();
+        }
+        return MINI_MESSAGE.deserialize(raw, resolvers);
     }
 
     /**

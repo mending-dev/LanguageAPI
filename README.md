@@ -107,14 +107,14 @@ npc_rewards: "<#ffffff>Rewards"
 
 # Nested keys are addressed with a dot
 welcome:
-  title: "<gradient:#efbf04:#ffffff>Welcome!</gradient>"
-  subtitle: "<gray>Hello <white>%player_name%</white>, have fun!"
-  # Available as %language_welcome.title% and %language_welcome.subtitle%
+   title: "<gradient:#efbf04:#ffffff>Welcome!</gradient>"
+   subtitle: "<gray>Hello <white>%player_name%</white>, have fun!"
+   # Available as %language_welcome.title% and %language_welcome.subtitle%
 
 # Lists are joined into one text with line breaks
 help_lines:
-  - "<gray>Line one"
-  - "<gray>Line two"
+   - "<gray>Line one"
+   - "<gray>Line two"
 ```
 
 ### Rules and tips
@@ -252,12 +252,12 @@ Messages of other plugins are **not** available through PlaceholderAPI. Only the
 
 ```kotlin
 repositories {
-    mavenLocal() // after running ./gradlew publishToMavenLocal in the LanguageAPI project
+   mavenLocal() // after running ./gradlew publishToMavenLocal in the LanguageAPI project
 }
 
 dependencies {
-    compileOnly("dev.mending:languageapi:1.1.0")
-    // or: compileOnly(files("libs/LanguageAPI-1.1.0.jar"))
+   compileOnly("dev.mending:languageapi:1.1.0")
+   // or: compileOnly(files("libs/LanguageAPI-1.1.0.jar"))
 }
 ```
 
@@ -265,11 +265,11 @@ dependencies {
 
 ```yaml
 dependencies:
-  server:
-    LanguageAPI:
-      load: BEFORE
-      required: true
-      join-classpath: true
+   server:
+      LanguageAPI:
+         load: BEFORE
+         required: true
+         join-classpath: true
 ```
 
 ### 2. Ship default language files
@@ -285,8 +285,8 @@ src/main/resources/lang/
 ```yaml
 # en_us.yml
 shop:
-  bought: "<green>You bought <white><item></white> for <gold><price></gold>!"
-  title: "<gradient:#efbf04:#ffffff>Shop</gradient>"
+   bought: "<green>You bought <white><item></white> for <gold><price></gold>!"
+   title: "<gradient:#efbf04:#ffffff>Shop</gradient>"
 no_permission: "<red>You are not allowed to do that."
 ```
 
@@ -295,20 +295,20 @@ no_permission: "<red>You are not allowed to do that."
 ```java
 public final class ShopPlugin extends JavaPlugin {
 
-    private Messages messages;
+   private Messages messages;
 
-    @Override
-    public void onEnable() {
-        // Creates plugins/ShopPlugin/lang/, copies the default files and loads all languages
-        messages = LanguageAPI.register(this);
-    }
+   @Override
+   public void onEnable() {
+      // Creates plugins/ShopPlugin/lang/, copies the default files and loads all languages
+      messages = LanguageAPI.register(this);
+   }
 
-    public void onPurchase(Player player, String item, int price) {
-        // Sent in the player's client language, with MiniMessage placeholders
-        messages.send(player, "shop.bought",
-                Placeholder.unparsed("item", item),
-                Placeholder.unparsed("price", String.valueOf(price)));
-    }
+   public void onPurchase(Player player, String item, int price) {
+      // Sent in the player's client language, with MiniMessage placeholders
+      messages.send(player, "shop.bought",
+              Placeholder.unparsed("item", item),
+              Placeholder.unparsed("price", String.valueOf(price)));
+   }
 }
 ```
 
@@ -332,15 +332,15 @@ Declare PlaceholderAPI in your `paper-plugin.yml` (use `required: false` if your
 
 ```yaml
 dependencies:
-  server:
-    LanguageAPI:
-      load: BEFORE
-      required: true
-      join-classpath: true
-    PlaceholderAPI:
-      load: BEFORE
-      required: false
-      join-classpath: true
+   server:
+      LanguageAPI:
+         load: BEFORE
+         required: true
+         join-classpath: true
+      PlaceholderAPI:
+         load: BEFORE
+         required: false
+         join-classpath: true
 ```
 
 Then use placeholders in your language files:
@@ -370,6 +370,8 @@ For every message, the first hit wins:
 |---|---|
 | `send(audience, key, resolvers...)` | Sends the message in the audience's language. Empty texts are not sent. |
 | `sendActionBar(audience, key, resolvers...)` | Same, as action bar |
+| `sendTitle(audience, titleKey, subtitleKey, resolvers...)` | Sends a title and subtitle (`subtitleKey` may be `null`). An overload accepts custom `Title.Times`. |
+| `showBossBar(audience, key, progress, color, overlay, resolvers...)` | Creates a boss bar with the translated name, shows it to the audience and returns it |
 | `broadcast(key, resolvers...)` | Sends to all online players (each in their language) and the console |
 | `get(audience, key, resolvers...)` | Returns the message as a `Component` |
 | `getLines(audience, key, resolvers...)` | Returns a list of components (for YAML lists, e.g. item lore) |
@@ -382,6 +384,55 @@ For every message, the first hit wins:
 `audience` can be a `Player`, the console or any other Adventure `Audience`. Everything except players uses the fallback language.
 
 Static helpers in `LanguageAPI`: `register(plugin)`, `register(plugin, defaultLanguage)`, `get(plugin)` and `getFallbackLanguage()`.
+
+### Titles, boss bars, scoreboards and more
+
+`Messages` has helpers for the most common cases:
+
+```java
+// Title and subtitle (the subtitle key may be null)
+messages.sendTitle(player, "welcome.title", "welcome.subtitle",
+        Placeholder.unparsed("player", player.getName()));
+
+// Boss bar: returns the bar, so you can update or hide it later
+BossBar bar = messages.showBossBar(player, "event.bossbar", 1.0f,
+        BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
+player.hideBossBar(bar);
+```
+
+For everything else, use `get(...)` and `getLines(...)`. They return Adventure components, which work wherever Paper accepts components:
+
+```java
+// Scoreboard
+objective.displayName(messages.get(player, "scoreboard.title"));
+team.prefix(messages.get(player, "scoreboard.coins", Placeholder.unparsed("coins", String.valueOf(coins))));
+
+// Item name and lore (YAML lists become one component per line)
+meta.displayName(messages.get(player, "shop.item.name"));
+meta.lore(messages.getLines(player, "shop.item.lore"));
+
+// Inventory title
+Inventory inventory = Bukkit.createInventory(null, 27, messages.get(player, "shop.title"));
+```
+
+Keep these points in mind:
+
+- **Use separate objects for different languages.** The language depends on the player's client. A boss bar, scoreboard or hologram that is shared by several players shows everyone the same text. Create one object per player, or one per language:
+
+  ```java
+  Map<String, BossBar> barsByLanguage = new HashMap<>();
+
+  BossBar bar = barsByLanguage.computeIfAbsent(messages.getLanguage(player),
+          code -> BossBar.bossBar(messages.get(player, "event.bossbar"),
+                  1.0f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS));
+  player.showBossBar(bar);
+  ```
+
+- **Do not store translated components for later.** Texts and PlaceholderAPI placeholders are resolved on every call. For anything dynamic (scoreboards, boss bar names), call `get(...)` again on each update, e.g. `bar.name(messages.get(player, "event.bossbar"))`.
+- **Rebuild displays when the language changes.** A player can change the client language while online. React to Paper's `PlayerClientOptionsChangeEvent` (check `hasLocaleChanged()`) and rebuild their scoreboard, boss bar and open menus.
+- **Item names and lore are italic by default** in Minecraft. Write `<!italic>` at the start of the text or call `.decoration(TextDecoration.ITALIC, false)`.
+- **Empty texts:** `send`, `sendActionBar` and `sendTitle` do nothing for an empty text (`key: ""`). `showBossBar` still shows the bar, just without a name, because the bar itself carries information.
+- **Menus and holograms** are created once and then viewed by many players. Build the title/lines per viewer (or per language) when opening them, not once at startup.
 
 ### Tips
 
