@@ -1,6 +1,6 @@
 # LanguageAPI
 
-A simple utility plugin for **Paper** that provides multi-language support through **PlaceholderAPI**.
+A utility plugin for **Paper** that provides multi-language support. Server admins use it through **PlaceholderAPI** placeholders, other plugins use it as a **library** (see [For developers](#for-developers-plugin-api)). PlaceholderAPI is optional.
 
 Admins create language files (`de_de.yml`, `en_us.yml`, ...), add their own keys with MiniMessage texts, and use them anywhere PlaceholderAPI placeholders work, e.g. `%language_npc_rewards%`. Every player automatically sees the text in the language of their Minecraft client.
 
@@ -18,6 +18,9 @@ Admins create language files (`de_de.yml`, `en_us.yml`, ...), add their own keys
 - Selectable output format: MiniMessage, legacy (`§` colors incl. hex) or plain
 - Nested placeholders inside texts, e.g. `%player_name%`
 - Reload via command, no server restart required
+- **Developer API:** other plugins can use LanguageAPI to become multi-language with their own `lang/` folder (see [For developers](#for-developers-plugin-api))
+- **PlaceholderAPI is optional:** without it, LanguageAPI works as a pure library for other plugins
+- Plugins using the API automatically support PlaceholderAPI placeholders in their texts (if PlaceholderAPI is installed and the plugin declares it as a dependency)
 
 ---
 
@@ -27,16 +30,16 @@ Admins create language files (`de_de.yml`, `en_us.yml`, ...), add their own keys
 |---|---|
 | Minecraft / Paper | 26.1 – 26.3 |
 | Java | 25 |
-| [PlaceholderAPI](https://github.com/PlaceholderAPI/PlaceholderAPI) | **Required** |
+| [PlaceholderAPI](https://github.com/PlaceholderAPI/PlaceholderAPI) | Optional (see below) |
 
-The plugin will not start without PlaceholderAPI.
+PlaceholderAPI is needed for the `%language_...%` placeholders and for placeholders inside the texts of other plugins. Without it, LanguageAPI still runs as a library for other plugins; only these two features are unavailable.
 
 ---
 
 ## Installation
 
 1. Download `LanguageAPI-<version>.jar` or build it yourself (see [Building](#building)).
-2. Make sure **PlaceholderAPI** is installed on your server.
+2. Install **PlaceholderAPI** if you want to use the `%language_...%` placeholders (optional if you only need LanguageAPI as a library for other plugins).
 3. Copy the JAR into your server's `plugins/` folder.
 4. Restart the server.
 
@@ -135,7 +138,7 @@ If only the **single key** is missing in the chosen language, that key is taken 
 
 ## Placeholders
 
-The expansion uses the identifier `language`.
+The expansion uses the identifier `language` and is only registered if PlaceholderAPI is installed. It exposes only the texts in `plugins/LanguageAPI/lang/`; messages of other plugins are never available through placeholders.
 
 | Placeholder | Description | Example |
 |---|---|---|
@@ -155,6 +158,7 @@ If a key exists in no language file, the text from `missing-key-format` is retur
 
 ```yaml
 # Fallback language (file name in lang/ without .yml)
+# Also used as fallback for all plugins that use the LanguageAPI
 fallback-language: en_us
 
 # Map a client "de_at" without its own file to another file of the same language (de_de)
@@ -168,6 +172,12 @@ parse-nested-placeholders: true
 
 # Text for unknown keys, {key} is replaced by the key
 missing-key-format: "[{key}]"
+
+# Only for plugins that use the LanguageAPI and declare PlaceholderAPI as a dependency:
+# Values of placeholders from other expansions are inserted as plain text, so MiniMessage tags
+# in values (e.g. a player-chosen nickname) cannot be abused. %language_...% keeps its formatting.
+# Set to false if an expansion intentionally returns MiniMessage text.
+escape-placeholder-values: true
 ```
 
 ### `output-format`
@@ -192,14 +202,18 @@ welcome_message: "<gray>Welcome back, <white>%player_name%</white>!"
 
 Nested placeholders are resolved at most three levels deep, so keys cannot call each other endlessly.
 
+### `escape-placeholder-values`
+
+Texts of plugins that use the LanguageAPI can contain PlaceholderAPI placeholders (see [For developers](#for-developers-plugin-api)). The placeholder values are inserted **before** the text is parsed as MiniMessage. With `true` (default), values of other expansions are escaped, so a value like a nickname containing `<click:run_command:...>` is shown as plain text instead of being interpreted. Placeholders of the `language` expansion are always trusted and keep their MiniMessage formatting.
+
 ---
 
 ## Commands and permissions
 
 | Command | Description | Permission |
 |---|---|---|
-| `/languageapi reload` | Reloads `config.yml` and all language files | `languageapi.admin` |
-| `/languageapi info` | Shows fallback, output format, loaded languages and your client language | `languageapi.admin` |
+| `/languageapi reload` | Reloads `config.yml` and the language files of LanguageAPI and all registered plugins | `languageapi.admin` |
+| `/languageapi info` | Shows fallback, output format, PlaceholderAPI status, all registered plugins with their languages (`[PAPI]` marks plugins with placeholder support) and your client language | `languageapi.admin` |
 
 Alias: `/langapi`
 
@@ -226,11 +240,28 @@ If the other plugin does not render MiniMessage texts from placeholders, set `ou
 
 ---
 
-## For developers
+## For developers (plugin API)
 
-Other plugins can also use the language system directly, without going through PlaceholderAPI.
+LanguageAPI can make **any other plugin multi-language** with a few lines of code. Your plugin gets its own `lang/` folder in its data folder with exactly the same structure, rules and fallback logic as LanguageAPI itself. LanguageAPI creates the folder and files, reads them and picks the right language for each player.
 
-Add LanguageAPI as a dependency in your plugin's `paper-plugin.yml`:
+Messages of other plugins are **not** available through PlaceholderAPI. Only the texts in `plugins/LanguageAPI/lang/` are.
+
+### 1. Add the dependency
+
+`build.gradle.kts` (the JAR is only needed at compile time, LanguageAPI itself is installed on the server):
+
+```kotlin
+repositories {
+    mavenLocal() // after running ./gradlew publishToMavenLocal in the LanguageAPI project
+}
+
+dependencies {
+    compileOnly("dev.mending:languageapi:1.1.0")
+    // or: compileOnly(files("libs/LanguageAPI-1.1.0.jar"))
+}
+```
+
+`paper-plugin.yml` of your plugin:
 
 ```yaml
 dependencies:
@@ -241,20 +272,125 @@ dependencies:
       join-classpath: true
 ```
 
-Usage in code:
+### 2. Ship default language files
 
-```java
-LanguageAPIPlugin languageApi = (LanguageAPIPlugin) Bukkit.getPluginManager().getPlugin("LanguageAPI");
-LanguageManager manager = languageApi.getLanguageManager();
+Put your default texts into your plugin's resources. Every file in `lang/` is picked up automatically:
 
-// Returns null if no language contains the key
-String text = manager.translate(player, "npc_rewards");
-
-// Language used for this player (after fallback handling)
-String code = manager.resolveLanguage(player).code();
+```
+src/main/resources/lang/
+├─ en_us.yml
+└─ de_de.yml
 ```
 
-`translate(...)` returns the text in the configured `output-format`. With `minimessage`, you can convert it to a component using `MiniMessage.miniMessage().deserialize(text)`. All methods are thread-safe.
+```yaml
+# en_us.yml
+shop:
+  bought: "<green>You bought <white><item></white> for <gold><price></gold>!"
+  title: "<gradient:#efbf04:#ffffff>Shop</gradient>"
+no_permission: "<red>You are not allowed to do that."
+```
+
+### 3. Register and use
+
+```java
+public final class ShopPlugin extends JavaPlugin {
+
+    private Messages messages;
+
+    @Override
+    public void onEnable() {
+        // Creates plugins/ShopPlugin/lang/, copies the default files and loads all languages
+        messages = LanguageAPI.register(this);
+    }
+
+    public void onPurchase(Player player, String item, int price) {
+        // Sent in the player's client language, with MiniMessage placeholders
+        messages.send(player, "shop.bought",
+                Placeholder.unparsed("item", item),
+                Placeholder.unparsed("price", String.valueOf(price)));
+    }
+}
+```
+
+That is all. The server owner can now add `plugins/ShopPlugin/lang/fr_fr.yml` and every French client sees it.
+
+### What LanguageAPI does for you
+
+- Creates `plugins/<YourPlugin>/lang/` and copies your bundled language files on the first start
+- Reads all files, normalizes the names (`de-DE.yml` becomes `de_de`) and survives broken files
+- Detects the client language of every player and finds the best file (exact match, same language, fallback)
+- Uses your bundled files as a safety net: if you add new keys in an update, they work immediately, even if the server owner's files on disk do not contain them yet. Texts on disk always win over bundled texts.
+- Reloads everything with `/languageapi reload`
+- Removes your registration automatically when your plugin is disabled
+- Resolves PlaceholderAPI placeholders in your texts if PlaceholderAPI is installed and your plugin declares it as a dependency (see below)
+
+### PlaceholderAPI in your texts
+
+If PlaceholderAPI is installed **and** your plugin declares it as a dependency, LanguageAPI resolves PlaceholderAPI placeholders in your texts automatically. There is nothing to call.
+
+Declare PlaceholderAPI in your `paper-plugin.yml` (use `required: false` if your plugin also works without it):
+
+```yaml
+dependencies:
+  server:
+    LanguageAPI:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
+```
+
+Then use placeholders in your language files:
+
+```yaml
+welcome: "<gray>Welcome <white>%player_name%</white>!"
+```
+
+- Placeholders are resolved for players. For the console (no player) they are resolved without player context.
+- By default, values of other expansions are escaped (see `escape-placeholder-values`). Use `<tag>` placeholders with `Placeholder.unparsed(...)` for your own dynamic values.
+- `%language_...%` placeholders of LanguageAPI itself work inside your texts and keep their formatting.
+- `messages.isPlaceholderApiEnabled()` tells you whether placeholders are resolved for your plugin.
+- LanguageAPI never exposes the texts of your plugin through PlaceholderAPI.
+
+### Language resolution order
+
+For every message, the first hit wins:
+
+1. The player's language (exact match, or another file of the same language)
+2. The **fallback language** from the LanguageAPI `config.yml`
+3. The **default language** of your plugin (`en_us`, or the one you pass to `register(plugin, "xx_xx")`)
+4. The `missing-key-format` text, plus a one-time warning in the console
+
+### `Messages` reference
+
+| Method | Description |
+|---|---|
+| `send(audience, key, resolvers...)` | Sends the message in the audience's language. Empty texts are not sent. |
+| `sendActionBar(audience, key, resolvers...)` | Same, as action bar |
+| `broadcast(key, resolvers...)` | Sends to all online players (each in their language) and the console |
+| `get(audience, key, resolvers...)` | Returns the message as a `Component` |
+| `getLines(audience, key, resolvers...)` | Returns a list of components (for YAML lists, e.g. item lore) |
+| `getRaw(audience, key)` | Returns the unparsed MiniMessage text |
+| `has(key)` | Checks whether a key exists in any language |
+| `getLanguage(audience)` | The language code that is actually used for this audience |
+| `isPlaceholderApiEnabled()` | Whether PlaceholderAPI placeholders are resolved in your texts |
+| `reload()` | Reloads the files of your plugin |
+
+`audience` can be a `Player`, the console or any other Adventure `Audience`. Everything except players uses the fallback language.
+
+Static helpers in `LanguageAPI`: `register(plugin)`, `register(plugin, defaultLanguage)`, `get(plugin)` and `getFallbackLanguage()`.
+
+### Tips
+
+- Use Adventure's `Placeholder.unparsed(...)`, `Placeholder.parsed(...)` and `Placeholder.component(...)` for dynamic values. Use `unparsed` for player-controlled input so nobody can inject MiniMessage tags.
+- An **empty text** (`key: ""`) disables a message. Server owners can use this to silence messages.
+- YAML lists are joined with line breaks. `getLines(...)` splits them again.
+- Keys are case-insensitive, nested sections are addressed with dots (`shop.bought`).
+- Calling `register` again with the same plugin returns the existing instance, so it is safe to call after reloads.
+- All methods are thread-safe.
 
 ---
 
@@ -273,16 +409,34 @@ Project structure:
 ```
 src/main/
 ├─ java/dev/mending/languageapi/
-│  ├─ LanguageAPIPlugin.java    # Main class, registers expansion and command
-│  ├─ LanguageManager.java      # Loads languages, resolves texts
-│  ├─ Language.java             # Immutable language data
-│  ├─ OutputFormat.java         # MiniMessage / legacy / plain conversion
-│  ├─ LanguageExpansion.java    # PlaceholderAPI expansion
-│  └─ LanguageCommand.java      # /languageapi command
+│  ├─ LanguageAPIPlugin.java            # Main class
+│  ├─ api/
+│  │  ├─ LanguageAPI.java               # Static entry point for other plugins
+│  │  └─ Messages.java                  # Per-plugin message API
+│  ├─ core/
+│  │  ├─ LanguageService.java           # Registry of all plugins, global settings, reload
+│  │  ├─ LanguageBundle.java            # Loads one lang/ folder, resolves texts
+│  │  ├─ Language.java                  # Immutable language data
+│  │  ├─ Settings.java                  # Values from config.yml
+│  │  ├─ LanguageCodes.java             # Code normalization, client language detection
+│  │  ├─ OutputFormat.java              # MiniMessage / legacy / plain conversion
+│  │  └─ PlaceholderResolver.java       # Abstraction so core works without PlaceholderAPI
+│  ├─ placeholder/                      # Only loaded if PlaceholderAPI is installed
+│  │  ├─ PlaceholderHook.java           # Registers expansion and resolver
+│  │  ├─ LanguageExpansion.java         # PlaceholderAPI expansion
+│  │  └─ PapiPlaceholderResolver.java   # Resolves placeholders in texts of other plugins
+│  └─ command/
+│     └─ LanguageCommand.java           # /languageapi command
 └─ resources/
    ├─ paper-plugin.yml
    ├─ config.yml
    └─ lang/en_us.yml
+```
+
+To use the plugin as a compile-time dependency in other projects, publish it to your local Maven repository:
+
+```bash
+./gradlew publishToMavenLocal
 ```
 
 ---
@@ -308,7 +462,10 @@ The calling plugin does not parse MiniMessage. Set `output-format: legacy` and r
 Save the language file as UTF-8.
 
 **The plugin does not start.**
-Check that PlaceholderAPI is installed and that the server runs Java 25 and Paper 26.1 or newer.
+Check that the server runs Java 25 and Paper 26.1 or newer. PlaceholderAPI is optional and not the cause.
+
+**PlaceholderAPI placeholders are not replaced in the texts of another plugin.**
+PlaceholderAPI must be installed, and the other plugin must declare it as a dependency in its `paper-plugin.yml` or `plugin.yml`. Run `/languageapi info`: plugins with placeholder support are marked with `[PAPI]`.
 
 ---
 

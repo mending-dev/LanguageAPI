@@ -1,9 +1,14 @@
-package dev.mending.languageapi;
+package dev.mending.languageapi.placeholder;
 
-import me.clip.placeholderapi.PlaceholderAPI;
+import dev.mending.languageapi.core.LanguageBundle;
+import dev.mending.languageapi.core.LanguageCodes;
+import dev.mending.languageapi.core.LanguageService;
+import dev.mending.languageapi.core.PlaceholderResolver;
+import dev.mending.languageapi.core.Settings;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,6 +17,7 @@ import java.util.Locale;
 
 /**
  * PlaceholderAPI expansion with the identifier "language".
+ * Only exposes the texts of LanguageAPI's own lang/ folder, never those of other plugins.
  * <ul>
  *     <li>%language_player% - the client's language code (e.g. de_de)</li>
  *     <li>%language_active% - the language file actually used for the player</li>
@@ -21,17 +27,14 @@ import java.util.Locale;
  */
 public final class LanguageExpansion extends PlaceholderExpansion {
 
-    /** Maximum depth for placeholders inside language texts. Protects against self-references. */
-    private static final int MAX_NESTING_DEPTH = 3;
+    private final Plugin plugin;
+    private final LanguageService service;
+    private final PlaceholderResolver resolver;
 
-    private static final ThreadLocal<Integer> NESTING_DEPTH = ThreadLocal.withInitial(() -> 0);
-
-    private final LanguageAPIPlugin plugin;
-    private final LanguageManager languageManager;
-
-    public LanguageExpansion(LanguageAPIPlugin plugin, LanguageManager languageManager) {
+    public LanguageExpansion(Plugin plugin, LanguageService service, PlaceholderResolver resolver) {
         this.plugin = plugin;
-        this.languageManager = languageManager;
+        this.service = service;
+        this.resolver = resolver;
     }
 
     @Override
@@ -64,51 +67,31 @@ public final class LanguageExpansion extends PlaceholderExpansion {
             return null;
         }
 
+        Settings settings = service.settings();
+        LanguageBundle bundle = service.ownBundle();
+
         // Online players are Player instances; offline players resolve to the fallback language
         Player player = offlinePlayer instanceof Player online ? online : null;
+        String clientCode = LanguageCodes.of(player);
 
         String lowerParams = params.toLowerCase(Locale.ROOT);
         switch (lowerParams) {
             case "player":
-                return languageManager.getClientLanguageCode(player);
+                return clientCode.isEmpty() ? settings.fallbackLanguage() : clientCode;
             case "active":
-                return languageManager.resolveLanguage(player).code();
+                return bundle.effectiveLanguage(clientCode);
             case "fallback":
-                return languageManager.getFallbackCode();
+                return settings.fallbackLanguage();
             default:
                 break;
         }
 
-        String text = languageManager.translate(player, lowerParams);
+        String text = bundle.lookup(clientCode, lowerParams);
         if (text == null) {
-            return languageManager.formatMissing(params);
+            return settings.formatMissing(params);
         }
 
-        return resolveNested(offlinePlayer, text);
-    }
-
-    /**
-     * Resolves placeholders inside a language text (e.g. %player_name%) with a depth guard.
-     */
-    private String resolveNested(OfflinePlayer player, String text) {
-        if (!languageManager.isParseNestedPlaceholders() || text.indexOf('%') == -1) {
-            return text;
-        }
-
-        int depth = NESTING_DEPTH.get();
-        if (depth >= MAX_NESTING_DEPTH) {
-            return text;
-        }
-
-        NESTING_DEPTH.set(depth + 1);
-        try {
-            return PlaceholderAPI.setPlaceholders(player, text);
-        } finally {
-            if (depth == 0) {
-                NESTING_DEPTH.remove();
-            } else {
-                NESTING_DEPTH.set(depth);
-            }
-        }
+        // The result is returned to the caller as-is, so values are not escaped here
+        return settings.parseNestedPlaceholders() ? resolver.resolve(offlinePlayer, text, false) : text;
     }
 }

@@ -2,14 +2,14 @@ name: LanguageAPI
 version: '${version}'
 main: dev.mending.languageapi.LanguageAPIPlugin
 api-version: '26.1'
-description: Multi-language support via PlaceholderAPI and YAML language files
+description: Multi-language support for your network
 authors: [ MrMending ]
 
 dependencies:
   server:
     PlaceholderAPI:
       load: BEFORE
-      required: true
+      required: false
       join-classpath: true
 
 permissions:

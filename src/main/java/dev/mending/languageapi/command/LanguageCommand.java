@@ -1,5 +1,9 @@
-package dev.mending.languageapi;
+package dev.mending.languageapi.command;
 
+import dev.mending.languageapi.core.LanguageBundle;
+import dev.mending.languageapi.core.LanguageCodes;
+import dev.mending.languageapi.core.LanguageService;
+import dev.mending.languageapi.core.Settings;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -22,10 +26,10 @@ public final class LanguageCommand implements BasicCommand {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final List<String> SUB_COMMANDS = List.of("reload", "info");
 
-    private final LanguageManager languageManager;
+    private final LanguageService service;
 
-    public LanguageCommand(LanguageManager languageManager) {
-        this.languageManager = languageManager;
+    public LanguageCommand(LanguageService service) {
+        this.service = service;
     }
 
     @Override
@@ -39,21 +43,33 @@ public final class LanguageCommand implements BasicCommand {
 
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "reload" -> {
-                int count = languageManager.reload();
-                send(sender, "<#efbf04>LanguageAPI</#efbf04> <gray>Reloaded <white>" + count + "</white> language(s).");
+                int count = service.reloadAll();
+                send(sender, "<#efbf04>LanguageAPI</#efbf04> <gray>Reloaded the config and the language files of <white>"
+                        + count + "</white> plugin(s).");
             }
-            case "info" -> {
-                Player player = sender instanceof Player p ? p : null;
-                send(sender, "<#efbf04>LanguageAPI</#efbf04> <gray>Information:");
-                send(sender, "<gray> Fallback: <white>" + languageManager.getFallbackCode());
-                send(sender, "<gray> Output format: <white>" + languageManager.getOutputFormat().name().toLowerCase(Locale.ROOT));
-                send(sender, "<gray> Loaded: <white>" + String.join("<gray>, <white>", languageManager.getLoadedLanguages()));
-                if (player != null) {
-                    send(sender, "<gray> Your client language: <white>" + languageManager.getClientLanguageCode(player));
-                    send(sender, "<gray> Language used for you: <white>" + languageManager.resolveLanguage(player).code());
-                }
-            }
+            case "info" -> sendInfo(sender);
             default -> send(sender, "<red>Unknown sub command. Use <white>/" + LABEL + " <reload|info>");
+        }
+    }
+
+    private void sendInfo(CommandSender sender) {
+        Settings settings = service.settings();
+
+        send(sender, "<#efbf04>LanguageAPI</#efbf04> <gray>Information:");
+        send(sender, "<gray> Fallback: <white>" + settings.fallbackLanguage());
+        send(sender, "<gray> Output format: <white>" + settings.outputFormat().name().toLowerCase(Locale.ROOT));
+        send(sender, "<gray> PlaceholderAPI: <white>" + (service.hasPlaceholderApi() ? "hooked" : "not installed"));
+        send(sender, "<gray> Registered plugins:");
+        for (LanguageBundle bundle : service.getBundles()) {
+            String papiMarker = bundle.isPlaceholderApiEnabled() ? " <#efbf04>[PAPI]" : "";
+            send(sender, "<gray>  - <white>" + bundle.ownerName() + papiMarker + "<gray>: <white>"
+                    + String.join("<gray>, <white>", bundle.languageCodes()));
+        }
+
+        if (sender instanceof Player player) {
+            String clientCode = LanguageCodes.of(player);
+            send(sender, "<gray> Your client language: <white>" + (clientCode.isEmpty() ? "unknown" : clientCode));
+            send(sender, "<gray> Language used for you: <white>" + service.ownBundle().effectiveLanguage(clientCode));
         }
     }
 

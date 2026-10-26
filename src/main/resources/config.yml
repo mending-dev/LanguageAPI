@@ -1,10 +1,13 @@
-# Fallback language. Must match a file name in the lang/ folder (without .yml).
-# It is used when the client's language has no file or a key is missing in that file.
+# Fallback language (file name in lang/ without .yml).
+# Also used as fallback for all plugins that use the LanguageAPI.
 fallback-language: en_us
 
 # If a client uses e.g. "de_at" and there is no de_at.yml, use another file of the
 # same language (e.g. de_de.yml) before falling back to the fallback language.
+# Applies to all plugins that use the LanguageAPI.
 language-prefix-matching: true
+
+# The following options only affect the PlaceholderAPI placeholders of LanguageAPI itself.
 
 # Format of the text returned by the placeholders:
 #   minimessage - raw MiniMessage text (use this if the consuming plugin parses MiniMessage)
@@ -16,4 +19,11 @@ output-format: minimessage
 parse-nested-placeholders: true
 
 # Returned when a key exists in no language file. {key} is replaced by the requested key.
+# Also used as the text for missing keys in plugins that use the LanguageAPI.
 missing-key-format: "[{key}]"
+
+# Only for plugins that use the LanguageAPI and declare PlaceholderAPI as a dependency:
+# Values of placeholders from other expansions are inserted as plain text, so MiniMessage tags
+# in values (e.g. a player-chosen nickname) cannot be abused. %language_...% keeps its formatting.
+# Set to false if an expansion intentionally returns MiniMessage text.
+escape-placeholder-values: true

@@ -1,14 +1,14 @@
-package dev.mending.languageapi;
+package dev.mending.languageapi.core;
 
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
 /**
- * An immutable, fully loaded language.
+ * An immutable, fully loaded language of one plugin.
  *
  * @param code  the normalized language code (e.g. "de_de")
- * @param texts all texts by lower-cased key, already converted to the configured output format
+ * @param texts all texts by lower-cased key
  */
 public record Language(String code, Map<String, String> texts) {
 

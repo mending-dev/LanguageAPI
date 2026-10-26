@@ -1,9 +1,10 @@
 plugins {
     java
+    `maven-publish`
 }
 
 group = "dev.mending"
-version = "1.0.0"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -20,6 +21,16 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifactId = "languageapi"
+            from(components["java"])
+        }
     }
 }
 

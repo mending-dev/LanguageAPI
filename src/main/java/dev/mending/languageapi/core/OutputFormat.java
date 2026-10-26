@@ -1,4 +1,4 @@
-package dev.mending.languageapi;
+package dev.mending.languageapi.core;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -8,7 +8,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import java.util.Locale;
 
 /**
- * Defines how language texts are returned by the placeholders.
+ * Defines how language texts are returned by the PlaceholderAPI placeholders.
  */
 public enum OutputFormat {
 
