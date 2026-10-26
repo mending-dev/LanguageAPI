@@ -517,9 +517,3 @@ Check that the server runs Java 25 and Paper 26.1 or newer. PlaceholderAPI is op
 
 **PlaceholderAPI placeholders are not replaced in the texts of another plugin.**
 PlaceholderAPI must be installed, and the other plugin must declare it as a dependency in its `paper-plugin.yml` or `plugin.yml`. Run `/languageapi info`: plugins with placeholder support are marked with `[PAPI]`.
-
----
-
-## License
-
-Define the license of your project here.
